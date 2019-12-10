@@ -36,7 +36,7 @@ namespace B_Tree
             Console.WriteLine("f key          find key");
             Console.WriteLine("c              check");
             Console.WriteLine("q              quit");
-
+            Console.WriteLine("o              operations from file");
             while (true)
             {
                 answear = Console.ReadLine();
