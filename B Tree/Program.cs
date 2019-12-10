@@ -10,7 +10,7 @@ namespace B_Tree
     {
         static void Main(string[] args)
         {
-            int order = 2;
+            int order = 10;
             int key;
             int offset;
             int max;
@@ -37,6 +37,8 @@ namespace B_Tree
             Console.WriteLine("c              check");
             Console.WriteLine("q              quit");
             Console.WriteLine("o              operations from file");
+            Console.WriteLine("rw             display number of operations");
+            Console.WriteLine("z              zero rw data");
             while (true)
             {
                 answear = Console.ReadLine();
@@ -46,7 +48,10 @@ namespace B_Tree
                     try
                     {
                         key = Int32.Parse(parts[1]);
-                        offset = Int32.Parse(parts[2]);
+                        if (parts.Length == 2)
+                            offset = Int32.Parse(parts[1]);
+                        else
+                            offset = Int32.Parse(parts[2]);
                     }
                     catch (Exception e)
                     {
@@ -55,6 +60,10 @@ namespace B_Tree
                     }
                     df.InsertIntoTree(key, offset);
                 }
+                else if (parts[0] == "rw")
+                    df.DisplayDiskIOinfo();
+                else if (parts[0] == "1")
+                    df.ZeroIOdata();
                 else if (parts[0] == "ii")
                 {
                     try
@@ -116,6 +125,17 @@ namespace B_Tree
                     answear = Console.ReadLine();
                     if (answear == "y")
                         df.DestroyTree();
+                }
+                else if (parts[0] == "o")
+                {
+                    try
+                    {
+                        df.ExecuteOperations(parts[1]);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.Message);
+                    }
                 }
                 else if (parts[0] == "u")
                 {

@@ -11,6 +11,7 @@ namespace B_Tree
         byte[] pageBuffer;
         int order;
         int pageSize;
+        int numberOfSaves, numberOfReads;
         private int childrenLevel;
         private int maxPageNumber;
         private List<int> checkedPages;
@@ -27,6 +28,8 @@ namespace B_Tree
             pageBuffer = new byte[pageSize];
             for (int i = 0; i < pageSize; i++)
                 filler[i] = 0;
+            numberOfReads = 0;
+            numberOfSaves = 0;
         }
 
 
@@ -48,6 +51,7 @@ namespace B_Tree
             }
             else
             {
+                numberOfReads++;
                 stream.Position = offset;
                 stream.Read(pageBuffer, 0, pageSize);
                 return new Page(pageBuffer, order);
@@ -275,6 +279,7 @@ namespace B_Tree
 
         public void SavePage(Page page)
         {
+            numberOfSaves++;
             stream.Position = page.currentPageNumber * pageSize;
             stream.Write(page.ToByte(pageSize), 0, pageSize);
         }
@@ -626,6 +631,101 @@ namespace B_Tree
             item1.valueOffset = item2.valueOffset;
             item2.key = key;
             item2.valueOffset = offset;
+        }
+
+
+        public void DisplayDiskIOinfo()
+        {
+            Console.WriteLine("Number of read operations: " + numberOfReads);
+            Console.WriteLine("Number of write operations: " + numberOfSaves);
+        }
+
+        public void ZeroIOdata()
+        {
+            numberOfSaves = 0;
+            numberOfReads = 0;
+        }
+
+        public void ExecuteOperations(string path)
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("No file found");
+                return;
+            }
+            string line;
+            string[] parts;
+            int key, offset;
+
+            using StreamReader stream = new StreamReader(path);
+            while ((line = stream.ReadLine()) != null)
+            {
+                parts = line.Split(' ');
+                if (parts[0] == "i")
+                {
+                    try
+                    {
+                        key = Int32.Parse(parts[1]);
+                        if (parts.Length == 2)
+                            offset = Int32.Parse(parts[1]);
+                        else
+                            offset = Int32.Parse(parts[2]);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.Message);
+                        continue;
+                    }
+                    InsertIntoTree(key, offset);
+                }
+                else if (parts[0] == "u")
+                {
+                    try
+                    {
+                        key = Int32.Parse(parts[1]);
+                        offset = Int32.Parse(parts[2]);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.Message);
+                        continue;
+                    }
+                    Update(key, offset);
+                }
+                else if (parts[0] == "f")
+                {
+                    try
+                    {
+                        key = Int32.Parse(parts[1]);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.Message);
+                        continue;
+                    }
+                    Page page = FindInTree(key, Constants.FIND);
+                    if (page is null)
+                        Console.WriteLine("Key doesnt exist");
+                    else
+                    {
+                        TreeItem item = page.GetItem(key);
+                        //Console.WriteLine("Key " + key + " found. Value is " + item.valueOffset);
+                    }
+                }
+                else if (parts[0] == "d")
+                {
+                    try
+                    {
+                        key = Int32.Parse(parts[1]);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.Message);
+                        continue;
+                    }
+                    Delete(key);
+                }
+            }
         }
     }
 }
