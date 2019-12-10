@@ -23,7 +23,7 @@ namespace B_Tree
         {
             stream = new FileStream("B-Tree", FileMode.OpenOrCreate, FileAccess.ReadWrite);
             order = d;
-            pageSize = 4 *(6 * order + 4);   //in bytes ; currentPageOffset, parentPageOffset, numberOfRecords, array of ints... (3 * 2d + 1)
+            pageSize = 4 *(6 * order + 4);   //in bytes ; currentPageNumber, parentPageNumber, numberOfRecords, array of ints... (3 * 2d + 1)
             filler = new byte[pageSize];
             pageBuffer = new byte[pageSize];
             for (int i = 0; i < pageSize; i++)
