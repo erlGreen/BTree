@@ -317,6 +317,7 @@ namespace B_Tree
         public void DestroyTree()
         {
             stream.SetLength(0);
+            dataStream.SetLength(0);
             Console.WriteLine("Tree destroyed");
         }
 
