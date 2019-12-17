@@ -7,20 +7,22 @@ namespace B_Tree
 {
     class DiskFunctionality
     {
-        byte[] filler;
-        byte[] pageBuffer;
-        int order;
-        int pageSize;
-        int numberOfSaves, numberOfReads;
+        readonly byte[] filler;
+        readonly byte[] pageBuffer;
+        readonly int order;
+        readonly int pageSize;
+        public int numberOfSaves, numberOfReads;
         private int childrenLevel;
         private int maxPageNumber;
         private List<int> checkedPages;
         public FileStream stream;
+        public FileStream dataStream;
         List<Page> pageList;
         List<int> pagesToDelete;
 
         public DiskFunctionality(int d)
         {
+            dataStream = new FileStream("data", FileMode.OpenOrCreate, FileAccess.ReadWrite);
             stream = new FileStream("B-Tree", FileMode.OpenOrCreate, FileAccess.ReadWrite);
             order = d;
             pageSize = 4 *(6 * order + 4);   //in bytes ; currentPageNumber, parentPageNumber, numberOfRecords, array of ints... (3 * 2d + 1)
@@ -62,6 +64,11 @@ namespace B_Tree
         {
             pageList = new List<Page>();
             Page page = ReadPage(0);
+            if (page is null)
+            {
+                Console.WriteLine("No root page");
+                return null;
+            }
             pageList.Add(page);
             Tuple<int, bool> tuple;
             while (true)
@@ -235,46 +242,47 @@ namespace B_Tree
             }
         }
 
-        public bool InsertIntoTree(int key, int valueOffset)
+        public bool InsertIntoTree(int key)
         {
             Page page;
+            int valueOffset = (int) dataStream.Length;
             TreeItem treeItem = new TreeItem(key, valueOffset, -1, -1);
             if (stream.Length == 0)
             {
                 page = new Page(0, -1, order);
                 page.Insert(treeItem);
                 SavePage(page);
-                Console.WriteLine("Inserted element");
+                dataStream.Position = dataStream.Length;
+                dataStream.Write(BitConverter.GetBytes(key), 0, 4);
+                Console.WriteLine("Inserted element at offset 0");
                 return true;
             }
             page = FindInTree(key, Constants.INSERT);
             if (!(page is null))   //if key doesnt exist
             {
                 InsertIntoPage(page, treeItem);
-                Console.WriteLine("Inserted element");
+                dataStream.Position = dataStream.Length;
+                dataStream.Write(BitConverter.GetBytes(key), 0, 4);
+                Console.WriteLine("Inserted element at offset " + (dataStream.Length - 4));
                 return true;
             }
             Console.WriteLine("Key already exists");
             return false;
         }
 
-        public void CreateFromFile(string path)
+        public void ViewDataFile()
         {
-            if (!File.Exists(path))
-                return;
-            DestroyTree();
-            byte[] bnumber = new byte[4];
-            int key;
-            int offset;
-            using FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read);
-            while (fs.Read(bnumber, 0, 4) == 4)
+            if (dataStream.Length == 0)
             {
-                key = BitConverter.ToInt32(bnumber, 0);
-                offset = (int)fs.Position - 4;
-                Console.WriteLine("Inserting " + key + " at " + offset);
-                InsertIntoTree(key, offset);
+                Console.WriteLine("File is empty");
+                return;
             }
-            Console.WriteLine("Finished reading file");
+            byte[] buffer = new byte[4];
+            dataStream.Position = 0;
+            while (dataStream.Read(buffer, 0, 4) > 0)
+            {
+                Console.WriteLine(BitConverter.ToInt32(buffer) + " at offset " + (dataStream.Position - 4));
+            }
         }
 
         public void SavePage(Page page)
@@ -378,6 +386,7 @@ namespace B_Tree
 
         public bool Delete(int key)
         {
+            int offset;
             pagesToDelete = new List<int>();
             Page page = FindInTree(key, Constants.FIND);
             if (page is null)
@@ -386,13 +395,14 @@ namespace B_Tree
                 return false;
             }
             TreeItem item = page.GetItem(key);
+            offset = item.valueOffset;
             Page leftGrandSon = GetLeftGrandSon(item.leftChildNumber);
             if (leftGrandSon != null)   //jeżeli ma lewego wnuka
             {
                 TreeItem leftGrandSonItem = leftGrandSon.itemList[leftGrandSon.itemList.Count - 1];
                 SwapItems(ref item, ref leftGrandSonItem);
                 leftGrandSon.RemoveElementWithKey(key);
-                Console.WriteLine("Deleted item");
+                //Console.WriteLine("Deleted item");
                 if (leftGrandSon.numberOfItems < order)
                 {
                     SavePage(page);
@@ -407,16 +417,32 @@ namespace B_Tree
             else
             {
                 page.RemoveElementWithKey(key);
-                Console.WriteLine("Deleted item");
+                //Console.WriteLine("Deleted item");
                 if (page.numberOfItems < order)
                     CompensateUnderflow(page);
                 else
                     SavePage(page);
             }
             DeletePages();
+            DeleteFromDataFile(offset);
             return true;
         }
 
+        public void DeleteFromDataFile(int offset)
+        {
+            if (offset == dataStream.Length - 4)
+            {
+                dataStream.SetLength(dataStream.Length - 4);
+                return;
+            }
+            byte[] lastKey = new byte[4];
+            dataStream.Position = dataStream.Length - 4;
+            dataStream.Read(lastKey, 0, 4);
+            dataStream.Position = offset;
+            dataStream.Write(lastKey, 0, 4);
+            dataStream.SetLength(dataStream.Length - 4);
+            Update(BitConverter.ToInt32(lastKey), offset);
+        }
         public void DeletePages()
         {
             int numberOfPage;
@@ -666,17 +692,13 @@ namespace B_Tree
                     try
                     {
                         key = Int32.Parse(parts[1]);
-                        if (parts.Length == 2)
-                            offset = Int32.Parse(parts[1]);
-                        else
-                            offset = Int32.Parse(parts[2]);
                     }
                     catch (Exception e)
                     {
                         Console.WriteLine(e.Message);
                         continue;
                     }
-                    InsertIntoTree(key, offset);
+                    InsertIntoTree(key);
                 }
                 else if (parts[0] == "u")
                 {
@@ -709,7 +731,10 @@ namespace B_Tree
                     else
                     {
                         TreeItem item = page.GetItem(key);
-                        //Console.WriteLine("Key " + key + " found. Value is " + item.valueOffset);
+                        dataStream.Position = item.valueOffset;
+                        byte[] data = new byte[4];
+                        dataStream.Read(data, 0, 4);
+                        Console.WriteLine("Key " + key + " found. Offset is " + item.valueOffset + ". Value is " + BitConverter.ToInt32(data));
                     }
                 }
                 else if (parts[0] == "d")

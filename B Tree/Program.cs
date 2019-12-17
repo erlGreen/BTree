@@ -1,8 +1,6 @@
 ﻿using System;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Linq;
+using System.Diagnostics;
 
 namespace B_Tree
 {
@@ -10,33 +8,26 @@ namespace B_Tree
     {
         static void Main(string[] args)
         {
-            int order = 10;
+            int order = 2;
             int key;
             int offset;
             int max;
             int amount;
             string answear;
             string[] parts;
-            //using FileStream fs = new FileStream("plik.txt", FileMode.Create, FileAccess.Write);
-            //int[] array = new int[20];
-            //for (int i = 0; i < array.Length; i++)
-            //    array[i] = i;
-            //byte[] bytes = array.SelectMany(BitConverter.GetBytes).ToArray();
-            //fs.Write(bytes, 0, 80);
-            //fs.Dispose();
             Random random = new Random();
             DiskFunctionality df = new DiskFunctionality(order);
             Console.WriteLine("i key value    insert value");
             Console.WriteLine("ii amount max  insert random keys");
             Console.WriteLine("d key          delete key");
             Console.WriteLine("dd amount max  remove random keys");
-            Console.WriteLine("m filename     make tree from file");
             Console.WriteLine("u key value    update value");
+            Console.WriteLine("v              view data file"); 
             Console.WriteLine("x              destroy tree");
             Console.WriteLine("f key          find key");
             Console.WriteLine("c              check");
             Console.WriteLine("q              quit");
-            Console.WriteLine("o              operations from file");
+            Console.WriteLine("o f            operations from file");
             Console.WriteLine("rw             display number of operations");
             Console.WriteLine("z              zero rw data");
             while (true)
@@ -58,11 +49,11 @@ namespace B_Tree
                         Console.WriteLine(e.Message);
                         continue;
                     }
-                    df.InsertIntoTree(key, offset);
+                    df.InsertIntoTree(key);
                 }
                 else if (parts[0] == "rw")
                     df.DisplayDiskIOinfo();
-                else if (parts[0] == "1")
+                else if (parts[0] == "z")
                     df.ZeroIOdata();
                 else if (parts[0] == "ii")
                 {
@@ -81,21 +72,14 @@ namespace B_Tree
                         if (tryNr == 5 * amount)
                             break;
                         key = random.Next(0, max);
-                        Console.WriteLine("Inserting " + key);
-                        if (!df.InsertIntoTree(key, key))
+                        //Console.WriteLine("Inserting " + key);
+                        if (!df.InsertIntoTree(key))
                             i--;
                     }
                 }
-                else if (parts[0] == "m")
+                else if (parts[0] == "v")
                 {
-                    try
-                    {
-                        df.CreateFromFile(parts[1]);
-                    }
-                    catch (Exception e)
-                    {
-                        Console.WriteLine(e.Message);
-                    }
+                    df.ViewDataFile();
                 }
                 else if (parts[0] == "dd")
                 {
@@ -168,7 +152,10 @@ namespace B_Tree
                     else
                     {
                         TreeItem item = page.GetItem(key);
-                        Console.WriteLine("Key " + key + " found. Value is " + item.valueOffset);
+                        df.dataStream.Position = item.valueOffset;
+                        byte[] data = new byte[4];
+                        df.dataStream.Read(data, 0, 4);
+                        Console.WriteLine("Key " + key + " found. Offset is " + item.valueOffset + ". Value is " + BitConverter.ToInt32(data));
                     }
                 }
                 else if (parts[0] == "q")
